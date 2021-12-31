@@ -1,0 +1,10 @@
+index:
+  html:
+    head:
+      title: STG.NET
+      meta:
+        description: STG.NET Products and Services
+    body:
+      jumbotron:
+        h1: Welcome to STGNET!
+        p: Thanks for your interest in our products for the Winnebago Travato.

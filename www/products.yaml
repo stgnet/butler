@@ -1,0 +1,27 @@
+products:
+  - part: SDC-1
+    name: Winnebago Travato 59g Shower Drain Cover
+    img: sdc-all.jpg
+    tags: [59G, 59GL, Plumbing]
+    description: >
+      This 3d printed plastic shower drain cover fills the
+      depression in the floor of the Travato 59G (2014-2021).
+      It also prevents larger particles being sucked into the
+      drain pump without slowing the water flow, which allows
+      removal of the pump filter that can easily clog.  Install
+      by removing the original cover and screwing this replacement
+      down over the drain hole fitting.
+    note: This part is compatible with G, GL, NPF GL years 2014-2021
+    buy-url: https://www.amazon.com/gp/product/B08KRXRGGV
+      link: 
+  - part: TFP-1
+    name: Tank Fill Plug
+    img: tfp-all.jpg
+    tags: [59G, 59K, Plumbing]
+    description: >
+      This 3D printed plastic tank fill plug is a replacement for the
+      standard black fresh water tank plug.  With a large handle it
+      is easier to operate, and can be secured with a rope to prevent
+      accidental loss.
+    note: Not compatible with 59GL and 59KL models that do not have a gravity fill port
+    buy-url: https://www.amazon.com/gp/product/B08KRWVBBB

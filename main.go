@@ -1,26 +1,25 @@
 package main
 
 // https://blog.kowalczyk.info/article/Jl3G/https-for-free-in-go.html
-// To run:
-// go run main.go
-// Command-line options:
-//   -production : enables HTTPS on port 443
-//   -redirect-to-https : redirect HTTP to HTTTPS
 
 import (
-	"strings"
-	"os"
-	"path/filepath"
 	"context"
 	"crypto/tls"
+	// "encoding/json"
+	// "bytes"
+	"net"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	// "strings"
 	"time"
 
-	"golang.org/x/crypto/acme/autocert"
+	// "github.com/goccy/go-yaml"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 const (
@@ -54,10 +53,56 @@ func makeHTTPServer() *http.Server {
 
 }
 
+// ### TODO ### turn this into a cache
+func validSHost(host string) bool {
+	if host[0] >= '0' && host[0] <= '9' {
+		return false
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		log.Infof("validSHost: Not HTTPS: Could not resolve '%s': %v", host, err)
+		return false
+	}
+	if len(ips) == 0 {
+		log.Infof("validSHost: Not HTTPS: no addresses returned for lookup '%s' - no HTTPS", host)
+		return false
+	}
+	for _, ip := range ips {
+		if ip.IsPrivate() || ip.IsLoopback() {
+			log.Infof("validSHost: Not HTTPS: Resolved '%s' as %v", host, ip.String())
+			return false
+		}
+		// another step: if ip matches interface addr, return true
+	}
+	return true
+}
+func validHost(host string) bool {
+	if host[0] >= '0' && host[0] <= '9' {
+		return false
+	}
+	// "xyz" is actually a valid hostname
+	// return strings.Contains(host, ".")
+	return true
+}
+
 func makeHTTPToHTTPSRedirectServer() *http.Server {
 	handleRedirect := func(w http.ResponseWriter, r *http.Request) {
-		newURI := "https://" + r.Host + r.URL.String()
-		http.Redirect(w, r, newURI, http.StatusFound)
+		if validSHost(r.Host) {
+			newURI := "https://" + r.Host + r.URL.String()
+			log.Infof("Sending redirect from %s from %s", r.Host+r.URL.String(), newURI)
+			http.Redirect(w, r, newURI, http.StatusFound)
+		} else {
+			log.Infof("Serving request: %s", r.Host+r.URL.String())
+			// w.WriteHeader(http.StatusNotFound)
+			errorHandler(w, r, http.StatusNotFound, 
+				fmt.Errorf("unimplemented //%s/%s", r.Host, r.URL.String()))
+			/*
+				html, err := json.MarshalIndent(r, "", "  ")
+				if err != nil {
+					log.Errorf("Failed json: %v", err)
+				}
+			*/
+		}
 	}
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/", handleRedirect)
@@ -69,24 +114,53 @@ func parseFlags() {
 	flag.Parse()
 }
 
+func dirExists(path string) (bool, bool) {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false, false
+	}
+	if stat.IsDir() {
+		return true, true
+	}
+	return false, true
+}
+
+func errorHandler(w http.ResponseWriter, r *http.Request, status int, err error) {
+	w.WriteHeader(status)
+	/*
+	   if status == http.StatusNotFound {
+	       fmt.Fprint(w, "custom 404")
+	   }
+	*/
+	fmt.Fprintf(w, "Error %d: %v", status, err)
+}
+
 func main() {
 	parseFlags()
 	var m *autocert.Manager
 
 	wwwDir := filepath.Join("/", "www")
+	dir, _ := dirExists(wwwDir)
+	if !dir {
+		wwwDir = filepath.Join(".", "www")
+		dir, _ = dirExists(wwwDir)
+		if !dir {
+			log.Fatalf("Unable to locate www directory")
+		}
+	}
 
 	var httpsSrv *http.Server
 	{
 		hostPolicy := func(ctx context.Context, host string) error {
-			if !strings.Contains(host, ".") {
+			if !validHost(host) {
 				return fmt.Errorf("Host is not valid: %s", host)
 			}
 			hostDir := filepath.Join(wwwDir, host)
-			stat, err := os.Stat(hostDir)
-			if err != nil {
+			dir, exists := dirExists(hostDir)
+			if !exists {
 				return fmt.Errorf("Host path does not exist: %s", hostDir)
 			}
-			if !stat.IsDir() {
+			if !dir {
 				return fmt.Errorf("Host path %s is instead a file?", hostDir)
 			}
 			log.Infof("Allowing cert for %s", host)

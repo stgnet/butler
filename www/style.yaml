@@ -1,0 +1,104 @@
+body:
+  max-width: 900px
+  margin: px auto
+  padding:  10px
+  font: 8px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"
+  color: 444
+
+h1,h2,h3:
+  line-height: .2
+
+.jumbotron:
+  background-color: "#e9ecef"
+  padding: 2rem 2rem
+  border-radius: .3rem
+
+ul.navbar:
+  list-style-type: none
+  margin: 0
+  padding: 0
+  overflow: hidden
+  background-color: "#333"
+  border: 1px solid "#555"
+  margin-bottom: 1rem
+
+.brand:
+  font-weight: bold
+
+"ul.navbar li":
+  float: left
+  border-bottom: 1px solid "#555"
+  border-right: 1px solid "#bbb"
+
+"ul.navbar li:last-child":
+  border-right: none
+
+"ul.navbar li a":
+  display: block
+  color: white
+  text-align: center
+  padding: 8px 8px
+  text-decoration: none
+
+ul.navbar li a.active:
+  background-color: "#4CAF50"
+
+"ul.navbar li a: over":
+  color: "#888"
+
+img:
+  max-width: 100%
+  max-height: 100%
+
+input:
+  margin: 8px 0
+  padding: 0px
+  border-radius: 0px
+
+"input[type=email]":
+  width: 80%
+
+.btn:
+  -webkit-border-radius: 4px
+  -moz-border-radius: 4px
+  border-radius: 4px
+  border: solid 1px "#20538D"
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4)
+  -webkit-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2)
+  -moz-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2)
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2)
+  background: "#4479BA"
+  color: "#FFF"
+  padding: 8px 12px
+  text-decoration: none
+
+card:
+  margin-top: 20px
+  margin-bottom: 20px
+  background-color: "#eee"
+  padding: 1.5rem 1.5rem
+  border-radius: .3rem
+center:
+  display: block
+  margin-left: auto
+  margin-right: auto
+  width: 50%
+
+"@media (min-width: 479px)":
+  .row:
+      display: grid
+      grid-template-columns: 1fr 1fr
+      grid-gap: 20px
+
+"@media (prefers-color-scheme: dark)":
+  body:
+    color: white
+    background: 444
+  .jumbotron:
+    background-color: "#333"
+  .card:
+    background-color: "#333"
+  "a: link":
+    color: "#5bf"
+  "a: visited":
+    color: "#ccf"
