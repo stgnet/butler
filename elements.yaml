@@ -1,0 +1,27 @@
+elements:
+
+  center:
+    tag: div
+    params:
+      class: center
+    contents: $
+
+#  text:
+#    text: $
+
+  product:
+    div:
+      - h1: $name
+      - p: $description
+          
+
+#  products:
+#    card:
+#      row:
+#        div: $img
+#        div:
+#          h3: $name
+#          p: $description
+#          p: $note
+#          float-right:
+#            a: "Buy on Amazon"

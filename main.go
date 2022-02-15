@@ -7,10 +7,9 @@ import (
 	"crypto/tls"
 	// "encoding/json"
 	// "bytes"
-	"net"
-	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -94,7 +93,7 @@ func makeHTTPToHTTPSRedirectServer() *http.Server {
 		} else {
 			log.Infof("Serving request: %s", r.Host+r.URL.String())
 			// w.WriteHeader(http.StatusNotFound)
-			errorHandler(w, r, http.StatusNotFound, 
+			errorHandler(w, r, http.StatusNotFound,
 				fmt.Errorf("unimplemented //%s/%s", r.Host, r.URL.String()))
 			/*
 				html, err := json.MarshalIndent(r, "", "  ")
@@ -107,11 +106,6 @@ func makeHTTPToHTTPSRedirectServer() *http.Server {
 	mux := &http.ServeMux{}
 	mux.HandleFunc("/", handleRedirect)
 	return makeServerFromMux(mux)
-}
-
-func parseFlags() {
-	// flag.BoolVar(&flgRedirectHTTPToHTTPS, "redirect-to-https", false, "if true, we redirect HTTP to HTTPS")
-	flag.Parse()
 }
 
 func dirExists(path string) (bool, bool) {
@@ -136,7 +130,11 @@ func errorHandler(w http.ResponseWriter, r *http.Request, status int, err error)
 }
 
 func main() {
-	parseFlags()
+
+	if len(os.Args[1:]) > 0 {
+		locate(os.Stdout, filepath.Join(os.Args[1:]...))
+		return
+	}
 	var m *autocert.Manager
 
 	wwwDir := filepath.Join("/", "www")
@@ -145,6 +143,7 @@ func main() {
 		wwwDir = filepath.Join(".", "www")
 		dir, _ = dirExists(wwwDir)
 		if !dir {
+			// TODO: assume operation out of cwd and show index
 			log.Fatalf("Unable to locate www directory")
 		}
 	}
