@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 var extPriority = map[string]int{
@@ -39,6 +41,7 @@ func matches(dir string, target string) []string {
 		fmt.Println(file.Name(), file.IsDir())
 	}
 	sort.Slice(matches, func(i, j int) bool { return extSort(matches[i], matches[2]) })
+	return matches
 }
 
 func locate(w io.Writer, path string) {
@@ -58,7 +61,7 @@ func locate(w io.Writer, path string) {
 	dir, file := filepath.Split(path)
 	ext := filepath.Ext(file)
 	justfile := file[0 : len(file)-len(ext)]
-	fmt.Printf("dir '%s' file '%s' just '%s' ext '%s'\n", dir, file, just, ext)
+	fmt.Printf("dir '%s' file '%s' just '%s' ext '%s'\n", dir, file, justfile, ext)
 
 	if dir == "" {
 		dir = "."

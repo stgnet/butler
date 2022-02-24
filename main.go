@@ -7,14 +7,17 @@ import (
 	"crypto/tls"
 	// "encoding/json"
 	// "bytes"
+	"net"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	// "strings"
 	"time"
+	"io/ioutil"
+	// "errors"
+	"net/url"
 
 	// "github.com/goccy/go-yaml"
 	log "github.com/sirupsen/logrus"
@@ -28,10 +31,35 @@ const (
 
 var (
 	flgRedirectHTTPToHTTPS = true
+	wwwDir = filepath.Join("/", "www")
 )
 
-func handleIndex(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, htmlIndex)
+func handleRequest(w http.ResponseWriter, r *http.Request) {
+	// entry point for all butler handled requests
+	hostDir := filepath.Join(wwwDir, r.Host, r.URL.Path)
+
+	stat, sErr := os.Stat(hostDir)
+	if sErr != nil {
+		errorHandler(w, r, 404, sErr)
+		return
+	}
+	if !stat.IsDir() {
+		http.ServeFile(w, r, hostDir)
+		return
+	}
+
+	files, gErr := ioutil.ReadDir(hostDir)
+	if gErr != nil {
+		errorHandler(w, r, 500, gErr)
+		return
+	}
+
+	io.WriteString(w, "<html><body><h1>Index</h1>\n<ul>\n")
+	for _, file := range files {
+		url := url.URL{Path: file.Name()}
+		fmt.Fprintf(w, "<li><a href=\"%s\">%s</li>\n", url.String(), file.Name())
+	}
+	io.WriteString(w, "</ul></body></html>\n")
 }
 
 func makeServerFromMux(mux *http.ServeMux) *http.Server {
@@ -47,7 +75,7 @@ func makeServerFromMux(mux *http.ServeMux) *http.Server {
 
 func makeHTTPServer() *http.Server {
 	mux := &http.ServeMux{}
-	mux.HandleFunc("/", handleIndex)
+	mux.HandleFunc("/", handleRequest)
 	return makeServerFromMux(mux)
 
 }
@@ -91,16 +119,9 @@ func makeHTTPToHTTPSRedirectServer() *http.Server {
 			log.Infof("Sending redirect from %s from %s", r.Host+r.URL.String(), newURI)
 			http.Redirect(w, r, newURI, http.StatusFound)
 		} else {
-			log.Infof("Serving request: %s", r.Host+r.URL.String())
-			// w.WriteHeader(http.StatusNotFound)
-			errorHandler(w, r, http.StatusNotFound,
-				fmt.Errorf("unimplemented //%s/%s", r.Host, r.URL.String()))
-			/*
-				html, err := json.MarshalIndent(r, "", "  ")
-				if err != nil {
-					log.Errorf("Failed json: %v", err)
-				}
-			*/
+			log.Infof("Serving HTTP request: %s", r.Host+r.URL.String())
+			handleRequest(w, r)
+			return
 		}
 	}
 	mux := &http.ServeMux{}
@@ -121,11 +142,6 @@ func dirExists(path string) (bool, bool) {
 
 func errorHandler(w http.ResponseWriter, r *http.Request, status int, err error) {
 	w.WriteHeader(status)
-	/*
-	   if status == http.StatusNotFound {
-	       fmt.Fprint(w, "custom 404")
-	   }
-	*/
 	fmt.Fprintf(w, "Error %d: %v", status, err)
 }
 
@@ -137,7 +153,6 @@ func main() {
 	}
 	var m *autocert.Manager
 
-	wwwDir := filepath.Join("/", "www")
 	dir, _ := dirExists(wwwDir)
 	if !dir {
 		wwwDir = filepath.Join(".", "www")

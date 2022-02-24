@@ -2,14 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
 	// "os"
 	"io"
 	"path/filepath"
 	"strings"
 
-	"github.com/goccy/go-yaml"
 	jsoniter "github.com/json-iterator/go"
 	// "gopkg.in/yaml.v2"
 )
@@ -241,52 +238,6 @@ func ConvertString(t *Tag, content string) string {
 }
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
-
-func getYaml(file string) interface{} {
-	products, pErr := ioutil.ReadFile(file)
-	if pErr != nil {
-		panic(fmt.Errorf("Cant read '%s': %v", file, pErr))
-	}
-
-	var data interface{}
-
-	yErr := yaml.Unmarshal(products, &data)
-	if yErr != nil {
-		panic(fmt.Errorf("Cant understand yaml '%s': %v", file, yErr))
-	}
-	return data
-}
-
-func renderYaml(w io.Writer, file string) {
-	els := getYaml("elements.yaml")
-
-	elements, eExists := (els.(map[string]interface{}))["elements"]
-	if !eExists {
-		panic(fmt.Errorf("elements.yaml does not contain elements section"))
-	}
-
-	doc := Doc{Elements: elements.(map[string]interface{})}
-
-	data := getYaml(file)
-
-	json, jErr := json.MarshalIndent(els, "", "  ")
-	if jErr != nil {
-		log.Fatal(jErr)
-	}
-	fmt.Println(string(json))
-	fmt.Printf("data: %#v\n", data)
-
-	html, htmlExists := (data.(map[string]interface{}))["html"]
-	if !htmlExists {
-		log.Fatal("no html section")
-	}
-	tag := Tag{
-		Name:     "html",
-		Params:   Params{"lang": "en"},
-		Contents: html,
-	}
-	io.WriteString(w, "<!DOCTYPE html>\n"+tag.Convert(&doc))
-}
 
 func renderFile(w io.Writer, file string) {
 	ext := filepath.Ext(file)
