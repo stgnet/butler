@@ -7,17 +7,17 @@ import (
 	"crypto/tls"
 	// "encoding/json"
 	// "bytes"
-	"net"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	// "strings"
+	// "io/ioutil"
 	"time"
-	"io/ioutil"
 	// "errors"
-	"net/url"
+	// "net/url"
 
 	// "github.com/goccy/go-yaml"
 	log "github.com/sirupsen/logrus"
@@ -31,35 +31,56 @@ const (
 
 var (
 	flgRedirectHTTPToHTTPS = true
-	wwwDir = filepath.Join("/", "www")
+	root                   Tray
 )
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	// entry point for all butler handled requests
-	hostDir := filepath.Join(wwwDir, r.Host, r.URL.Path)
+	// hostDir := filepath.Join(wwwDir, r.Host, r.URL.Path)
 
-	stat, sErr := os.Stat(hostDir)
-	if sErr != nil {
-		errorHandler(w, r, 404, sErr)
-		return
+	// first locate our virtual host
+	host := r.Host
+	if host == "" {
+		host = "defaut"
 	}
-	if !stat.IsDir() {
-		http.ServeFile(w, r, hostDir)
-		return
+	var tray Tray
+	var tErr error
+	if host == "localhost" {
+		tray = root
+	} else {
+		tray, tErr = root.Pass(host)
+		if tErr != nil {
+			errorHandler(w, r, Broke{Status: http.StatusNotFound, Problem: tErr})
+			return
+		}
 	}
 
-	files, gErr := ioutil.ReadDir(hostDir)
+	file := "index"
+	paths := splitpath(r.URL.Path)
+	last := len(paths) - 1
+	for index, path := range paths {
+		next, nErr := tray.Pass(path)
+		if nErr != nil {
+			if index == last {
+				// presume the last entry is the file
+				file = path
+				break
+			} else {
+				errorHandler(w, r, Broke{Status: http.StatusNotFound, Problem: nErr})
+				return
+			}
+		}
+		tray = next
+	}
+
+	glass, gErr := tray.Glass(file)
 	if gErr != nil {
-		errorHandler(w, r, 500, gErr)
+		errorHandler(w, r, Broke{Status: http.StatusNotFound, Problem: gErr})
 		return
 	}
 
-	io.WriteString(w, "<html><body><h1>Index</h1>\n<ul>\n")
-	for _, file := range files {
-		url := url.URL{Path: file.Name()}
-		fmt.Fprintf(w, "<li><a href=\"%s\">%s</li>\n", url.String(), file.Name())
-	}
-	io.WriteString(w, "</ul></body></html>\n")
+	w.Header().Set("Content-Type", glass.Type())
+	glass.Pour(w)
 }
 
 func makeServerFromMux(mux *http.ServeMux) *http.Server {
@@ -96,7 +117,7 @@ func validSHost(host string) bool {
 	}
 	for _, ip := range ips {
 		if ip.IsPrivate() || ip.IsLoopback() {
-			log.Infof("validSHost: Not HTTPS: Resolved '%s' as %v", host, ip.String())
+			// log.Infof("validSHost: Not HTTPS: Resolved '%s' as %v", host, ip.String())
 			return false
 		}
 		// another step: if ip matches interface addr, return true
@@ -119,7 +140,7 @@ func makeHTTPToHTTPSRedirectServer() *http.Server {
 			log.Infof("Sending redirect from %s from %s", r.Host+r.URL.String(), newURI)
 			http.Redirect(w, r, newURI, http.StatusFound)
 		} else {
-			log.Infof("Serving HTTP request: %s", r.Host+r.URL.String())
+			// log.Infof("Serving HTTP request: %s", r.Host+r.URL.String())
 			handleRequest(w, r)
 			return
 		}
@@ -129,39 +150,62 @@ func makeHTTPToHTTPSRedirectServer() *http.Server {
 	return makeServerFromMux(mux)
 }
 
-func dirExists(path string) (bool, bool) {
+func dirExists(path string) bool {
 	stat, err := os.Stat(path)
 	if err != nil {
-		return false, false
+		return false
 	}
 	if stat.IsDir() {
-		return true, true
+		return true
 	}
-	return false, true
+	return false
 }
 
-func errorHandler(w http.ResponseWriter, r *http.Request, status int, err error) {
-	w.WriteHeader(status)
-	fmt.Fprintf(w, "Error %d: %v", status, err)
+type Broke struct {
+	Status  int
+	Problem error
+}
+
+func (e Broke) Error() string {
+	return fmt.Sprintf("Error %d %v", e.Status, e.Problem)
+}
+
+func errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	switch e := err.(type) {
+	case Broke:
+		w.WriteHeader(e.Status)
+	default:
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	io.WriteString(w, err.Error())
+	log.Infof("%s%v: %v", r.Host, r.URL, err)
+}
+
+var roots = []string{
+	"/www",
+	"/var/www",
+	"./www",
+	".",
 }
 
 func main() {
-
 	if len(os.Args[1:]) > 0 {
 		locate(os.Stdout, filepath.Join(os.Args[1:]...))
 		return
 	}
-	var m *autocert.Manager
-
-	dir, _ := dirExists(wwwDir)
-	if !dir {
-		wwwDir = filepath.Join(".", "www")
-		dir, _ = dirExists(wwwDir)
-		if !dir {
-			// TODO: assume operation out of cwd and show index
-			log.Fatalf("Unable to locate www directory")
+	for _, path := range roots {
+		if !dirExists(path) {
+			continue
 		}
+		root = Cast(path, nil)
+		break
 	}
+	if root == nil {
+		panic("No directory found for root tray")
+	}
+	log.Infof("Using %s for root tray", root.Path())
+
+	var m *autocert.Manager
 
 	var httpsSrv *http.Server
 	{
@@ -169,19 +213,12 @@ func main() {
 			if !validHost(host) {
 				return fmt.Errorf("Host is not valid: %s", host)
 			}
-			hostDir := filepath.Join(wwwDir, host)
-			dir, exists := dirExists(hostDir)
-			if !exists {
-				return fmt.Errorf("Host path does not exist: %s", hostDir)
-			}
-			if !dir {
-				return fmt.Errorf("Host path %s is instead a file?", hostDir)
-			}
+			// this was checking to make sure host was valid dir
 			log.Infof("Allowing cert for %s", host)
 			return nil
 		}
 
-		dataDir := filepath.Join(wwwDir, "certs")
+		dataDir := filepath.Join(root.Path(), "certs")
 		err := os.MkdirAll(dataDir, os.ModePerm)
 		if err != nil {
 			log.Fatal(err)

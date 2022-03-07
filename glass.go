@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"io/fs"
+	"mime"
 	"os"
 	"path/filepath"
 	"time"
@@ -10,9 +11,12 @@ import (
 
 // glass describes a file, either on disk or cached output
 type Glass interface {
-	fs.FileInfo     // file Name(), Size(), Mode(), ModTime()
-	Pour(io.Writer) // write contents to stream
-	Path() string   // full path to file
+	// fs.FileInfo           // file Name(), Size(), Mode(), ModTime()
+	Name() string
+	Pour(io.Writer) error // write contents to stream
+	Path() string         // full path to file
+	Type() string         // mime-type
+	Tray() Tray           // parent tray
 }
 
 type glassfile struct {
@@ -46,11 +50,15 @@ func (g *glassfile) Path() string {
 	return filepath.Join(g.tray.Path(), g.info.Name())
 }
 
-func (g *glassfile) Pour(w io.Writer) {
+func (g *glassfile) Type() string {
+	return mime.TypeByExtension(filepath.Ext(g.Name()))
+}
+
+func (g *glassfile) Pour(w io.Writer) error {
 	// io.WriteString(w, "test\n")
 	in, inErr := os.Open(g.Path())
 	if inErr != nil {
-		panic(inErr)
+		return inErr
 	}
 	defer in.Close()
 	buf := make([]byte, 1024)
@@ -58,7 +66,7 @@ func (g *glassfile) Pour(w io.Writer) {
 		// read a chunk
 		r, rErr := in.Read(buf)
 		if rErr != nil && rErr != io.EOF {
-			panic(rErr)
+			return rErr
 		}
 		if r == 0 {
 			break
@@ -67,9 +75,14 @@ func (g *glassfile) Pour(w io.Writer) {
 		// write a chunk
 		_, wErr := w.Write(buf[:r])
 		if wErr != nil {
-			panic(wErr)
+			return wErr
 		}
 	}
+	return nil
+}
+
+func (g *glassfile) Tray() Tray {
+	return g.tray
 }
 
 func Blow(tray Tray, info *fs.FileInfo) Glass {

@@ -7,7 +7,7 @@ import (
 
 func TestTray(t *testing.T) {
 	t.Log("testing Tray")
-	tray := Cast(".")
+	tray := Cast(".", nil)
 	if tray == nil {
 		t.Errorf("Cast failed")
 	}
