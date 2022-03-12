@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // a tray represents all the contents
@@ -16,28 +17,65 @@ import (
 type Tray interface {
 	Name() string                   // just the directory name
 	Path() string                   // full path to directory on filesystem
-	Glass(string) (Glass, error)    // locate a file or ersatz stream
+	Glass(string) (Glass, error)    // locate a file, drink, or ersatz
 	Pass(string) (Tray, error)      // locate a sub-directory
 	Get(keys ...string) interface{} // obtain config
+	FileMatch(string) (int, string) // return index and type matching name
 }
 
 type trayDir struct {
 	path   string      // full filesystem path to directory
 	info   fs.FileInfo // Name(), etc
 	config interface{} // raw contents from butler.yaml
-	parent *Tray
+	parent Tray
 
 	dirs   []Tray  // sub-directories as other trays
 	files  []Glass // actual files on filesystem for change detection
 	drinks []Glass // files or data sources available to pour
 }
 
-func (t trayDir) Get(keys ...string) interface{} {
+func (t *trayDir) FileMatch(name string) (int, string) {
+	filematch := t.Get("filematch")
+	if filematch == nil {
+		log.Infof("Tray %s has no filematch configuration", t.Path())
+		return 0, ""
+	}
+	for i, m := range filematch.([]interface{}) {
+		switch r := m.(type) {
+		case map[string]interface{}:
+			for patterns, wisk := range r {
+				for _, pattern := range strings.Split(patterns, ",") {
+					pat := strings.TrimSpace(pattern)
+					match, mErr := filepath.Match(pat, name)
+					if mErr != nil {
+						log.Errorf("Pattern error in filematch %d %s: %v", i, pat, mErr)
+						continue
+					}
+					if match {
+						switch wisk.(type) {
+						case string:
+							return i + 1, wisk.(string)
+						default:
+							log.Errorf("Unexpected wisk type in filematch %d %s: %#v", i, pat, wisk)
+							continue
+						}
+					}
+				}
+			}
+		default:
+			log.Errorf("Unknown filematch type: %#v", m)
+		}
+	}
+	log.Warningf("filematch had no match for '%s'", name)
+	return 0, ""
+}
+
+func (t *trayDir) Get(keys ...string) interface{} {
 	data := t.config
 	for _, key := range keys {
 		switch d := data.(type) {
 		case map[string]interface{}:
-			data := d[key]
+			data = d[key]
 			if data == nil {
 				log.Errorf("%s: Get did not find key '%s'", t.Path(), key)
 				return nil
@@ -51,7 +89,7 @@ func (t trayDir) Get(keys ...string) interface{} {
 	return data
 }
 
-func (t trayDir) loadConfig() {
+func (t *trayDir) loadConfig() {
 	file, fErr := os.Open(filepath.Join(t.Path(), "butler.yaml"))
 	if fErr != nil {
 		t.config = nil
@@ -64,15 +102,15 @@ func (t trayDir) loadConfig() {
 	}
 }
 
-func (t trayDir) Name() string {
+func (t *trayDir) Name() string {
 	return t.info.Name()
 }
 
-func (t trayDir) Path() string {
+func (t *trayDir) Path() string {
 	return t.path
 }
 
-func (t trayDir) Pass(name string) (Tray, error) {
+func (t *trayDir) Pass(name string) (Tray, error) {
 	for _, dir := range t.dirs {
 		if dir.Name() == name {
 			return dir, nil
@@ -81,22 +119,18 @@ func (t trayDir) Pass(name string) (Tray, error) {
 	return nil, fmt.Errorf("Directory not found '%s'", name)
 }
 
-var extOrder = []string{
-	"html",
-	"yaml",
-}
-
-func (t trayDir) Glass(name string) (Glass, error) {
+func (t *trayDir) Glass(name string) (Glass, error) {
 	var match Glass
-	for _, file := range t.files {
-		if file.Name() == name {
-			return file, nil
+	best := 0
+	for _, drink := range t.drinks {
+		prio := drink.Match(name)
+		// log.Infof("Glass search %s in drink %s has %d", name, drink.Name(), prio)
+		if prio <= 0 {
+			continue
 		}
-		for _, ext := range extOrder {
-			if file.Name() == name+"."+ext {
-				match = file
-				break
-			}
+		if best <= 0 || prio < best {
+			match = drink
+			best = prio
 		}
 	}
 	if match != nil {
@@ -116,7 +150,9 @@ func Cast(path string, parent Tray) Tray {
 	tray := new(trayDir)
 	tray.path = path
 	tray.info = stat
-	// files: glasses,
+	tray.parent = parent
+
+	tray.loadConfig()
 
 	glasses := []Glass{}
 	files, rdErr := ioutil.ReadDir(path)
@@ -125,21 +161,36 @@ func Cast(path string, parent Tray) Tray {
 		return nil
 	}
 	dirs := []string{}
+	drinks := []Glass{}
 	for _, file := range files {
+		// log.Infof("Processing file %s/%s", tray.Path(), file.Name())
 		if file.IsDir() {
 			dirs = append(dirs, file.Name())
 		} else {
-			glasses = append(glasses, Blow(tray, &file))
+			prio, wiskName := tray.FileMatch(file.Name())
+			glassfile := Blow(tray, &file, prio)
+			glasses = append(glasses, glassfile)
+
+			if prio > 0 {
+				wisk, exists := Wisks[wiskName]
+				if exists {
+					drinks = append(drinks, wisk(glassfile))
+					// log.Infof("File %s/%s wisk %s added to drinks", tray.Path(), file.Name(), wiskName)
+				} else {
+					// log.Infof("File %s/%s has unknown wisk %s", tray.Path(), file.Name(), wiskName)
+				}
+			} else {
+				// log.Infof("File %s/%s has no match", tray.Path(), file.Name())
+			}
 		}
 	}
 	tray.files = glasses
+	tray.drinks = drinks
 
 	tray.dirs = []Tray{}
 	for _, dir := range dirs {
 		tray.dirs = append(tray.dirs, Cast(filepath.Join(tray.path, dir), tray))
 	}
-
-	tray.loadConfig()
 
 	return tray
 }

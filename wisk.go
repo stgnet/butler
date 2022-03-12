@@ -38,6 +38,10 @@ func (g *glassDeny) Pour(w io.Writer) error {
 	return Broke{Status: http.StatusForbidden, Problem: fmt.Errorf("access denied to file '%s'", g.Name())}
 }
 
+func (g *glassDeny) Match(name string) int {
+	return g.source.Match(name)
+}
+
 func DenyWisk(source Glass) Glass {
 	return &glassDeny{
 		source: source,

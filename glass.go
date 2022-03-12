@@ -1,6 +1,7 @@
 package main
 
 import (
+	// log "github.com/sirupsen/logrus"
 	"io"
 	"io/fs"
 	"mime"
@@ -17,11 +18,13 @@ type Glass interface {
 	Path() string         // full path to file
 	Type() string         // mime-type
 	Tray() Tray           // parent tray
+	Match(string) int     // matched name if returned priority is !0
 }
 
 type glassfile struct {
 	info fs.FileInfo
 	tray Tray
+	prio int
 }
 
 func (g *glassfile) IsDir() bool {
@@ -52,6 +55,31 @@ func (g *glassfile) Path() string {
 
 func (g *glassfile) Type() string {
 	return mime.TypeByExtension(filepath.Ext(g.Name()))
+}
+
+func (g *glassfile) Match(match string) int {
+	name := g.Name()
+	if len(match) > len(name) {
+		// log.Infof("Match %s to %s failed len", match, name)
+		return 0
+	}
+	i := 0
+	for i < len(name) {
+		if i == len(match) {
+			if name[i] == '.' {
+				break
+			}
+			// log.Infof("Match %s to %s failed end match", match, name)
+			return 0
+		}
+		if name[i] != match[i] {
+			// log.Infof("Match %s to %s failed mismatchi '%s' '%s'", match, name, match[i:], name[i:])
+			return 0
+		}
+		i++
+	}
+	// log.Infof("match %s to %s returning prio=%d", match, name, g.prio)
+	return g.prio
 }
 
 func (g *glassfile) Pour(w io.Writer) error {
@@ -85,9 +113,11 @@ func (g *glassfile) Tray() Tray {
 	return g.tray
 }
 
-func Blow(tray Tray, info *fs.FileInfo) Glass {
+func Blow(tray Tray, info *fs.FileInfo, prio int) Glass {
 	glass := new(glassfile)
 	glass.info = *info
 	glass.tray = tray
+	glass.prio = prio
+	// log.Infof("Created %s %d", glass.Name(), glass.prio)
 	return glass
 }

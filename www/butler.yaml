@@ -1,0 +1,10 @@
+
+bogus:
+  test string
+
+filematch:
+  - "butler.yaml": deny
+  - "*.yaml": yaml
+  - "*.php": php
+  - "*.html": raw
+  - "*.jpg, *.gif, *.png" : raw
