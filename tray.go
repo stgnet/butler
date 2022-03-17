@@ -71,21 +71,38 @@ func (t *trayDir) FileMatch(name string) (int, string) {
 }
 
 func (t *trayDir) Get(keys ...string) interface{} {
+	// log.Infof("%s: looking for key %#v", t.Path(), keys)
 	data := t.config
+	if data == nil {
+		if t.parent != nil {
+			return t.parent.Get(keys...)
+		}
+		// TODO: also check default configs
+		log.Errorf("%s: has no config data, no parent", t.Path())
+		return nil
+	}
 	for _, key := range keys {
 		switch d := data.(type) {
 		case map[string]interface{}:
 			data = d[key]
 			if data == nil {
+				// try again with parent tray
+				if t.parent != nil {
+					// log.Infof("%s: did not find %#v checking parent %s", t.Path(), keys, t.parent.Path())
+					return t.parent.Get(keys...)
+				}
+				// TODO: also check default configs
 				log.Errorf("%s: Get did not find key '%s'", t.Path(), key)
 				return nil
 			}
 			continue
 		default:
+			// log.Infof("%s: has config=%#v", t.Path(), t.config)
 			log.Errorf("%s: Get unknown type '%#v'", t.Path(), data)
 			return nil
 		}
 	}
+	// log.Infof("%s: found key %#v data=%#v", t.Path(), keys, data)
 	return data
 }
 
@@ -136,7 +153,7 @@ func (t *trayDir) Glass(name string) (Glass, error) {
 	if match != nil {
 		return match, nil
 	}
-	return nil, fmt.Errorf("File not found '%s'", name)
+	return nil, fmt.Errorf("File '%s' not found in tray %s", name, t.Path())
 }
 
 func Cast(path string, parent Tray) Tray {

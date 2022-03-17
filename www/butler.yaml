@@ -6,5 +6,5 @@ filematch:
   - "butler.yaml": deny
   - "*.yaml": yaml
   - "*.php": php
-  - "*.html": raw
+  - "*.html": ssi
   - "*.jpg, *.gif, *.png" : raw
