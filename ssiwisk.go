@@ -64,8 +64,16 @@ func (w *writeSSI) Command(cmd string) {
 		// log.Infof("including %#v", virtual)
 		tray := w.tray
 		if virtual[0] == '/' && root != nil {
-			tray = root
 			virtual = virtual[1:]
+			// root is host tray which has root as parent
+			for {
+				parent := tray.Parent()
+				if parent == nil || parent == root {
+					break
+				}
+				log.Infof("Searching for host tray %s -> %s", tray.Path(), parent.Path())
+				tray = parent
+			}
 		}
 		paths := splitpath(virtual)
 		dirs := paths[0 : len(paths)-1]
@@ -97,7 +105,7 @@ next:
 	for {
 		for i < len(b)-8 {
 			if b[i+0] == '<' && b[i+1] == '!' && b[i+2] == '-' && b[i+3] == '-' && b[i+4] == '#' {
-				n, wErr := w.out.Write(p[:i])
+				n, wErr := w.out.Write(b[:i])
 				if wErr != nil {
 					return n, wErr
 				}

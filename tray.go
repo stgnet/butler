@@ -21,6 +21,7 @@ type Tray interface {
 	Pass(string) (Tray, error)      // locate a sub-directory
 	Get(keys ...string) interface{} // obtain config
 	FileMatch(string) (int, string) // return index and type matching name
+	Parent() Tray
 }
 
 type trayDir struct {
@@ -32,6 +33,10 @@ type trayDir struct {
 	dirs   []Tray  // sub-directories as other trays
 	files  []Glass // actual files on filesystem for change detection
 	drinks []Glass // files or data sources available to pour
+}
+
+func (t *trayDir) Parent() Tray {
+	return t.parent
 }
 
 func (t *trayDir) FileMatch(name string) (int, string) {

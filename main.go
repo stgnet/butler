@@ -103,6 +103,9 @@ func makeHTTPServer() *http.Server {
 
 // ### TODO ### turn this into a cache
 func validSHost(host string) bool {
+	if len(host) == 0 {
+		return false
+	}
 	if host[0] >= '0' && host[0] <= '9' {
 		return false
 	}
@@ -193,6 +196,14 @@ func main() {
 		locate(os.Stdout, filepath.Join(os.Args[1:]...))
 		return
 	}
+
+	lifetime := time.NewTimer(time.Hour * 6)
+	go func() {
+		<-lifetime.C
+		log.Infof("Shutting down on lifetime")
+		os.Exit(1)
+	}()
+
 	for _, path := range roots {
 		if !dirExists(path) {
 			continue
