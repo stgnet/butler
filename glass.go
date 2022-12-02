@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"mime"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -12,13 +13,15 @@ import (
 
 // glass describes a file, either on disk or cached output
 type Glass interface {
-	// fs.FileInfo           // file Name(), Size(), Mode(), ModTime()
 	Name() string
-	Pour(io.Writer) error // write contents to stream
-	Path() string         // full path to file
-	Type() string         // mime-type
-	Tray() Tray           // parent tray
-	Match(string) int     // matched name if returned priority is !0
+	Pour(io.Writer) error           // write contents to stream
+	Path() string                   // full path to file
+	Type() string                   // mime-type
+	Tray() Tray                     // parent tray
+	Match(string) int               // matched name if returned priority is !0
+	Get(keys ...string) interface{} // return any file level config or pass to tray get
+	Data(url.Values) interface{}    // obtain data from yaml or other structred data source
+	// data can be restricted or ordered by optional arguments, returned should be in form datasetname:{record, record...}
 }
 
 type glassfile struct {
@@ -111,6 +114,16 @@ func (g *glassfile) Pour(w io.Writer) error {
 
 func (g *glassfile) Tray() Tray {
 	return g.tray
+}
+
+func (g *glassfile) Get(keys ...string) interface{} {
+	// TODO: add support for locating a file.xyz.yaml or file.yaml to load config from
+	return g.Tray().Get(keys...)
+}
+
+func (g *glassfile) Data(keys url.Values) interface{} {
+	// no data from a normal file
+	return nil
 }
 
 func Blow(tray Tray, info *fs.FileInfo, prio int) Glass {

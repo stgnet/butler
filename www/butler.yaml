@@ -7,4 +7,6 @@ filematch:
   - "*.yaml": yaml
   - "*.php": php
   - "*.html": ssi
-  - "*.jpg, *.gif, *.png" : raw
+  - "*.jpg, *.gif, *.png, *.ico" : raw
+  - "*.mp4, *.avi" : raw
+  - "*.css" : raw

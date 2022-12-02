@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 )
 
 // wisk constructs a glass that targets a source file(s) or structurered data
@@ -40,6 +41,14 @@ func (g *glassDeny) Pour(w io.Writer) error {
 
 func (g *glassDeny) Match(name string) int {
 	return g.source.Match(name)
+}
+
+func (g *glassDeny) Get(keys ...string) interface{} {
+	return g.source.Tray().Get(keys...)
+}
+
+func (g *glassDeny) Data(keys url.Values) interface{} {
+	return nil
 }
 
 func DenyWisk(source Glass) Glass {

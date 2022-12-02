@@ -192,10 +192,12 @@ var roots = []string{
 }
 
 func main() {
-	if len(os.Args[1:]) > 0 {
-		locate(os.Stdout, filepath.Join(os.Args[1:]...))
-		return
-	}
+	/*
+		if len(os.Args[1:]) > 0 {
+			locate(os.Stdout, filepath.Join(os.Args[1:]...))
+			return
+		}
+	*/
 
 	lifetime := time.NewTimer(time.Hour * 6)
 	go func() {

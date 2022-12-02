@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/goccy/go-yaml"
 	log "github.com/sirupsen/logrus"
-	"io"
+	// "io"
 	"io/ioutil"
 )
 
@@ -41,16 +41,20 @@ func getYaml(file string) interface{} {
 	return data
 }
 
+func asYaml(d interface{}) string {
+	out, err := yaml.Marshal(d)
+	if err != nil {
+		return err.Error()
+	}
+	return string(out)
+}
+
+/*
 func renderYaml(w io.Writer, file string) {
 	els := getYaml("elements.yaml")
 
 	// elements, eExists := (els.(map[string]interface{}))["elements"]
 	elements := Walk(els, "elements")
-	/*
-		if !eExists {
-			panic(fmt.Errorf("elements.yaml does not contain elements section"))
-		}
-	*/
 
 	doc := Doc{Elements: elements.(map[string]interface{})}
 
@@ -68,7 +72,6 @@ func renderYaml(w io.Writer, file string) {
 		if !htmlExists {
 			log.Fatal("no html section")
 		}
-	*/
 	tag := Tag{
 		Name:     "html",
 		Params:   Params{"lang": "en"},
@@ -76,3 +79,4 @@ func renderYaml(w io.Writer, file string) {
 	}
 	io.WriteString(w, "<!DOCTYPE html>\n"+tag.Convert(&doc))
 }
+*/

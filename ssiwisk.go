@@ -4,6 +4,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"io"
+	"net/url"
 	"strings"
 )
 
@@ -94,7 +95,7 @@ func (w *writeSSI) Command(cmd string) {
 		}
 		glass.Pour(w)
 	default:
-		w.Error(cmd, fmt.Errorf("unexpected"))
+		w.Error(cmd, fmt.Errorf("unexpected or unimplemented SSI command %v", c))
 	}
 }
 
@@ -142,6 +143,14 @@ func (g *glassSSI) Pour(w io.Writer) error {
 
 func (g *glassSSI) Match(name string) int {
 	return g.source.Match(name)
+}
+
+func (g *glassSSI) Get(keys ...string) interface{} {
+	return g.source.Tray().Get(keys...)
+}
+
+func (g *glassSSI) Data(keys url.Values) interface{} {
+	return nil
 }
 
 func SSIWisk(source Glass) Glass {
